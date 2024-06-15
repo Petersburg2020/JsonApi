@@ -39,7 +39,8 @@ public class Main {
 
                         @Override
                         public void onCompleted(JsonReader json, long durationInMillis) {
-
+                            println();
+                            println(json.prettyPrint());
                         }
 
                         @Override
