@@ -3,6 +3,7 @@ package nx.peter.api.json;
 import nx.peter.api.json.core.JsonNull;
 import nx.peter.api.json.data.Duo;
 import nx.peter.api.json.reader.*;
+import nx.peter.java.util.DateManager;
 import nx.peter.java.util.data.DataManager;
 import nx.peter.java.util.data.Word;
 import nx.peter.java.util.param.IntString;
@@ -10,10 +11,7 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static nx.peter.java.util.data.DataManager.*;
 
@@ -22,8 +20,13 @@ public interface JsonUtil {
     String INVALID_ESCAPED_SEQUENCE = "Invalid escape sequence";
 
     
-    static <T> List<T> createList() {
+    @Contract(value = " -> new", pure = true)
+    static <T> @NotNull List<T> createList() {
         return new ArrayList<>();
+    }
+
+    static String formatDate(long timeInMillis) {
+        return DateManager.getFormattedDate(new Date(timeInMillis), DateManager.DateFormatter.DEFAULT);
     }
 
     @Contract(" -> new")
@@ -107,7 +110,7 @@ public interface JsonUtil {
 
     @Contract(value = "_ -> new", pure = true)
     static @NotNull List<Object> resolve(@NotNull List list) {
-        return new ArrayList<>(list);
+        return new ArrayList<Object>(list);
     }
 
     static boolean isJsonItem(Object obj) {
@@ -169,26 +172,20 @@ public interface JsonUtil {
                 //if (pos + 4 > limit && !fillBuffer(4)) throw syntaxError("Unterminated escape sequence");
                 // Equivalent to Integer.parseInt(stringPool.get(buffer, pos, 4), 16);
                 var result = getResult(pos, buffer);
-                pos += 4;
                 return new IJsonElement.IDuo<>(result, new IntString(ESCAPED_SEQUENCE, lineNumber));
 
             case 't':
                 return new IJsonElement.IDuo<>('\t', new IntString(ESCAPED_SEQUENCE, lineNumber));
-
             case 'b':
                 return new IJsonElement.IDuo<>('\b', new IntString(ESCAPED_SEQUENCE, lineNumber));
-
             case 'n':
                 return new IJsonElement.IDuo<>('\n', new IntString(ESCAPED_SEQUENCE, lineNumber));
-
             case 'r':
                 return new IJsonElement.IDuo<>('\r', new IntString(ESCAPED_SEQUENCE, lineNumber));
-
             case 'f':
                 return new IJsonElement.IDuo<>('\f', new IntString(ESCAPED_SEQUENCE, lineNumber));
             case '\n':
                 lineNumber++;
-                lineStart = pos;
                 // fall-through
             case '\'':
             case '"':

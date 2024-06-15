@@ -32,12 +32,12 @@ afterEvaluate {
                 from(components["java"])
             }
         }
-        repositories {
+        /*repositories {
             maven {
                 // change to point to your repo, e.g. http://my.org/repo
                 url = uri(layout.buildDirectory.dir("https://github.com/Petersburg2020/JsonApi"))
             }
-        }
+        }*/
     }
 }
 

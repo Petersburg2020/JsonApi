@@ -1,5 +1,6 @@
 package nx.peter.api.json.io;
 
+import nx.peter.api.json.Json;
 import nx.peter.api.json.reader.JsonArray;
 import nx.peter.api.json.reader.JsonElement;
 import nx.peter.api.json.reader.JsonObject;
@@ -38,6 +39,10 @@ public class JsonReader implements JsonStream<JsonElement, JsonArray, JsonObject
         else if (text.startsWith("[") && text.endsWith("]"))
             root = newArray(extractArray(text));
         else root = INSTANCE;
+    }
+
+    public static @NotNull <T> JsonReader fromModel(@NotNull T model) {
+        return fromRoot(Json.toJson(model));
     }
 
     public static @NotNull JsonReader fromRoot(@NotNull nx.peter.api.json.core.JsonElement root) {

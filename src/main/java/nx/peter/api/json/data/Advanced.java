@@ -6,25 +6,30 @@ import nx.peter.api.json.reader.JsonArray;
 import nx.peter.api.json.reader.JsonObject;
 import nx.peter.java.util.Util;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Parameter;
+import java.lang.reflect.*;
 import java.util.*;
+
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import static nx.peter.api.json.JsonUtil.createList;
 
 public class Advanced {
 
-    public static <T> ObjectDetail<T> getObjectDetail(T model) {
+    @Contract("null -> new")
+    public static <T> @NotNull ObjectDetail<T> getObjectDetail(T model) {
         if (model == null) return new ObjectDetail<>();
-        Class<T> clazz = (Class<T>) model.getClass();
-        var fields = clazz.getFields();
+        var clazz = (Class<T>) model.getClass();
+        var fields = clazz.getDeclaredFields();
         List<String> names = new ArrayList<>();
         List<Object> values = new ArrayList<>();
         List<ObjectDetail.Type> types = new ArrayList<>();
-        for (Field field : fields) {
+        for (var field : fields) {
             names.add(field.getName());
-            Class type = field.getType();
+            var type = field.getType();
+
+            field.setAccessible(true);
 
             try {
                 if (field.isEnumConstant()) {
@@ -66,55 +71,42 @@ public class Advanced {
         return new ObjectDetail<>(names, values, types, clazz);
     }
 
-    public static <T> T getObject(@NotNull Map<String, Object> detail, Class<T> clazz) {
-        if (detail == null | clazz == null) return null;
-        Class[] parameters = null;
+    public static <T> @Nullable T getObject(@NotNull Map<String, Object> detail, Class<T> clazz) {
+        if (clazz == null) return null;
+        Class<?>[] parameters = null;
         List<String> names = null;
-        for (Constructor<?> c : clazz.getConstructors())
+        for (var c : clazz.getDeclaredConstructors())
             if (equals(clazz, c)) {
-                parameters = new Class[c.getParameterCount()];
+                parameters = new Class<?>[c.getParameterCount()];
                 names = getSortedParameterNames(c, clazz);
                 int index;
-                for (Parameter p : c.getParameters()) {
+                for (var p : c.getParameters()) {
                     index = Integer.parseInt(p.getName().substring(3));
                     parameters[index] = p.getType();
                 }
                 break;
             }
         boolean compat = parameters != null;
-        if (compat)
-            try {
-                return clazz.getConstructor(parameters)
-                        .newInstance(sortByName(detail, names).toArray());
-            } catch (InstantiationException
-                    | NoSuchMethodException
-                    | InvocationTargetException
-                    | ClassCastException
-                    | IllegalArgumentException
-                    | IllegalAccessException e) {
-                System.out.println(e.getMessage());
-                return null;
-            }
+        if (compat) try {
+            return clazz.getConstructor(parameters).newInstance(sortByName(detail, names).toArray());
+        } catch (InstantiationException | NoSuchMethodException | InvocationTargetException | ClassCastException |
+                 IllegalArgumentException | IllegalAccessException e) {
+            System.out.println(e.getMessage());
+            return null;
+        }
         return null;
     }
 
     public static <T> JsonObject toJson(Map<String, T> map) {
         if (map != null) {
             Map<String, Object> object = new LinkedHashMap<>();
-            for (String name : map.keySet()) {
+            for (var name : map.keySet()) {
                 var value = map.get(name);
-                if (value instanceof Integer
-                        || value instanceof Long
-                        || value instanceof Double
-                        || value instanceof Float
-                        || value instanceof Boolean
-                        || value instanceof String
-                        || value instanceof Byte) object.put(name, value);
+                if (value instanceof Integer || value instanceof Long || value instanceof Double || value instanceof Float || value instanceof Boolean || value instanceof String || value instanceof Byte)
+                    object.put(name, value);
                 else if (value instanceof Object[]) object.put(name, toJson((Object[]) value));
-                else if (value instanceof List)
-                    object.put(name, toJson(Util.toObjectList((List<?>) value)));
-                else if (value instanceof Map)
-                    object.put(name, toJson(Util.toObjectMap((Map<?, ?>) value)));
+                else if (value instanceof List) object.put(name, toJson(Util.toObjectList((List<?>) value)));
+                else if (value instanceof Map) object.put(name, toJson(Util.toObjectMap((Map<?, ?>) value)));
                 else object.put(name, toJson(value));
             }
             return JsonUtil.newObject(object);
@@ -128,22 +120,15 @@ public class Advanced {
     }
 
     public static <T> JsonArray toJson(List<T> list) {
-        var array = new ArrayList<Object>();
+        var array = new ArrayList<>();
         if (list != null)
             // System.out.println("We are array!");
             for (var value : list)
-                if (value instanceof Integer
-                        || value instanceof Long
-                        || value instanceof Double
-                        || value instanceof Float
-                        || value instanceof Boolean
-                        || value instanceof String
-                        || value instanceof Byte) array.add(value);
+                if (value instanceof Integer || value instanceof Long || value instanceof Double || value instanceof Float || value instanceof Boolean || value instanceof String || value instanceof Byte)
+                    array.add(value);
                 else if (value instanceof Object[]) array.add(toJson((Object[]) value));
-                else if (value instanceof List)
-                    array.add(toJson(Util.toObjectList((List<?>) value)));
-                else if (value instanceof Map)
-                    array.add(toJson(Util.toObjectMap((Map<?, ?>) value)));
+                else if (value instanceof List) array.add(toJson(Util.toObjectList((List<?>) value)));
+                else if (value instanceof Map) array.add(toJson(Util.toObjectMap((Map<?, ?>) value)));
                 else array.add(toJson(value));
         return JsonUtil.newArray(array);
     }
@@ -153,14 +138,13 @@ public class Advanced {
         if (model != null) {
             var detail = getObjectDetail(model);
 
-            System.out.println(detail);
+            // System.out.println(detail);
             for (var name : detail.names) {
                 var value = detail.get(name);
                 if (isRawData(value)) object.put(name, value);
                 else if (isArray(value)) object.put(name, toJson(toObjectList(value)));
                 else if (value instanceof List) object.put(name, toJson(toObjectList(value)));
-                else if (value instanceof Map)
-                    object.put(name, toJson(Util.toObjectMap((Map<?, ?>) value)));
+                else if (value instanceof Map) object.put(name, toJson(Util.toObjectMap((Map<?, ?>) value)));
                 else object.put(name, toJson(value));
             }
             object.put("className", model.getClass().getName());
@@ -168,11 +152,12 @@ public class Advanced {
         return JsonUtil.newObject(object);
     }
 
-    protected static <O> List<Object> toObjectList(Object array) {
+    protected static <O> @NotNull List<Object> toObjectList(Object array) {
         return isList(array) ? toObjectList((List<O>) array) : toObjectList((O[]) array);
     }
 
-    protected static <T> String getClassName(Class<T> clazz) {
+    @Contract(pure = true)
+    protected static <T> @NotNull String getClassName(@NotNull Class<T> clazz) {
         return clazz.getName();
     }
 
@@ -184,37 +169,26 @@ public class Advanced {
         return value instanceof List;
     }
 
-    protected static List<Object> toObjectList(List list) {
-        List<Object> objs = new ArrayList<>();
-        for(var it : list) 
-        	objs.add(it);
-        return objs;
+    protected static @NotNull List<Object> toObjectList(@NotNull List list) {
+        return new ArrayList<Object>(list);
     }
 
     @SafeVarargs
-    protected static <O> List<Object> toObjectList(O... array) {
+    protected static <O> @NotNull List<Object> toObjectList(O... array) {
         return toObjectList(Arrays.asList(array));
     }
 
     private static boolean isRawData(Object value) {
-        return value instanceof Integer
-                || value instanceof Long
-                || value instanceof Double
-                || value instanceof Float
-                || value instanceof Boolean
-                || value instanceof Character
-                || value instanceof Byte
-                || value instanceof CharSequence;
+        return value instanceof Integer || value instanceof Long || value instanceof Double || value instanceof Float || value instanceof Boolean || value instanceof Character || value instanceof Byte || value instanceof CharSequence;
     }
 
-    public static <T> T fromJson(nx.peter.api.json.core.JsonObject j, Class<T> clazz) {
+    public static <T> @Nullable T fromJson(nx.peter.api.json.core.JsonObject j, Class<T> clazz) {
         var json = (JsonObject) j;
         if (json.hasName("className")) {
             Map<String, Object> detail = new LinkedHashMap<>();
             try {
                 var clazzStr = json.readString("className");
-                if (clazzStr instanceof JsonNull
-                        || !clazz.equals(Class.forName(clazzStr.getString()))) return null;
+                if (clazzStr instanceof JsonNull || !clazz.equals(Class.forName(clazzStr.getString()))) return null;
                 for (String key : json.getNames())
                     if (!key.contentEquals("className")) {
                         var value = json.readValue(key);
@@ -238,16 +212,14 @@ public class Advanced {
         return null;
     }
 
-    public static List<Object> sortByName(Map<String, Object> detail, List<String> names) {
+    public static @NotNull List<Object> sortByName(Map<String, Object> detail, List<String> names) {
         if (detail == null | names == null) return new ArrayList<Object>();
         List<Object> vals = new ArrayList<>();
-        // System.out.println("Sort");
         for (var name : names) vals.add(detail.get(name));
-        // System.out.println(detail.get(name) + ": " + name);
         return vals;
     }
 
-    public static boolean isCompatibile(Set<String> params, Class clazz) {
+    public static boolean isCompatible(@NotNull Set<String> params, Class<?> clazz) {
         List<String> fields = getFieldNames(clazz);
         boolean good = fields.size() == params.size();
         if (good) {
@@ -257,18 +229,27 @@ public class Advanced {
         return false;
     }
 
-    public static List<String> getFieldNames(Class clazz) {
+    public static @NotNull List<String> getFieldNames(@NotNull Class<?> clazz) {
         var fields = clazz.getFields();
         List<String> names = new ArrayList<>();
         for (var field : fields) names.add(field.getName());
         return names;
     }
 
-    public static List<Field> getFields(Class clazz) {
-        return new ArrayList<>(Arrays.asList(clazz.getFields()));
+    @Contract("_ -> new")
+    public static @NotNull List<Field> getFields(@NotNull Class<?> clazz) {
+        return Arrays.asList(clazz.getDeclaredFields());
     }
 
-    public static boolean equals(List<String> fields, List<String> parameters) {
+    public static @NotNull List<Method> getMethods(@NotNull Class<?> clazz) {
+        return Arrays.asList(clazz.getDeclaredMethods());
+    }
+
+    public static @NotNull List<Parameter> getMethodParameters(@NotNull Method method) {
+        return Arrays.asList(method.getParameters());
+    }
+
+    public static boolean equals(@NotNull List<String> fields, @NotNull List<String> parameters) {
         if (fields.size() == parameters.size()) {
             for (int index = 0; index < fields.size(); index++)
                 if (!fields.get(index).equals(parameters.get(index))) return false;
@@ -277,49 +258,53 @@ public class Advanced {
         return false;
     }
 
-    public static boolean equals(Class clazz, Constructor constructor) {
+    public static boolean equals(@NotNull Class<?> clazz, @NotNull Constructor<?> constructor) {
         if (clazz.getFields().length == constructor.getParameters().length) {
-            for (Field field : clazz.getFields()) if (!contains(constructor, field)) return false;
+            for (var field : clazz.getFields()) if (!contains(constructor, field)) return false;
             return true;
         }
         return false;
     }
 
-    public static List<String> getSortedParameterNames(Constructor constructor, Class clazz) {
+    public static @NotNull List<String> getSortedParameterNames(Constructor<?> constructor, Class<?> clazz) {
         if (clazz == null | constructor == null) return new ArrayList<>();
-        List<String> names = new ArrayList<>();
+        List<String> names = createList();
         if (equals(clazz, constructor))
-            for (Parameter param : constructor.getParameters())
-                for (Field field : clazz.getFields())
-                    if (param.getType().equals(field.getType()) && !names.contains(field.getName()))
+            for (var param : constructor.getParameterTypes())
+                for (var field : clazz.getDeclaredFields()) {
+                    field.setAccessible(true);
+                    if (param.equals(field.getType()) && !names.contains(field.getName()))
                         names.add(field.getName());
+                }
         return names;
     }
 
-    public static boolean contains(Constructor constructor, Field field) {
+    public static boolean contains(Constructor<?> constructor, Field field) {
         if (field == null | constructor == null) return false;
+        field.setAccessible(true);
         return getParameterTypes(constructor).contains(field.getType());
     }
 
-    public static List<Class> getParameterTypes(Constructor constructor) {
-        if (constructor == null) return new ArrayList<>();
-        Parameter[] parameters = constructor.getParameters();
-        List<Class> types = new ArrayList<>();
-        for (Parameter field : parameters) types.add(field.getType());
+    @Contract("null -> new")
+    public static @NotNull List<Class<?>> getParameterTypes(Constructor<?> constructor) {
+        if (constructor == null) return createList();
+        List<Class<?>> types = createList();
+        for (var parameter : constructor.getParameters()) types.add(parameter.getType());
         return types;
     }
 
-    public static List<String> getParameterNames(Constructor constructor) {
+    @Contract("null -> new")
+    public static @NotNull List<String> getParameterNames(Constructor<?> constructor) {
         if (constructor == null) return new ArrayList<>();
-        Parameter[] parameters = constructor.getParameters();
+        var parameters = constructor.getParameters();
         List<String> names = new ArrayList<>();
-        for (Parameter param : parameters) names.add(param.getName());
+        for (var param : parameters) names.add(param.getName());
         return names;
     }
 
-    public static String getName(Class clazz) {
+    public static @NotNull String getName(Class<?> clazz) {
         if (clazz == null) return "";
-        String name = clazz.getName();
+        var name = clazz.getName();
         if (name.contains(".")) name = name.substring(name.lastIndexOf(".") + 1);
         return name;
     }
@@ -339,7 +324,8 @@ public class Advanced {
         else return ObjectDetail.Type.Object;
     }
 
-    public static String getSqlType(ObjectDetail.Type type) {
+    @Contract(pure = true)
+    public static @NotNull String getSqlType(ObjectDetail.@NotNull Type type) {
         return switch (type) {
             case Boolean -> "BOOLEAN";
             case Double -> "DECIMAL(11, 4)";
@@ -359,8 +345,7 @@ public class Advanced {
     }
 
     public static double toDouble(Object obj, double def) {
-        if (getType(obj).equals(ObjectDetail.Type.Double))
-            return Double.parseDouble(obj.toString());
+        if (getType(obj).equals(ObjectDetail.Type.Double)) return Double.parseDouble(obj.toString());
         return def;
     }
 
@@ -375,8 +360,7 @@ public class Advanced {
     }
 
     public static boolean toBoolean(Object obj, boolean def) {
-        if (getType(obj).equals(ObjectDetail.Type.Double))
-            return Boolean.parseBoolean(obj.toString());
+        if (getType(obj).equals(ObjectDetail.Type.Double)) return Boolean.parseBoolean(obj.toString());
         return def;
     }
 
@@ -388,18 +372,7 @@ public class Advanced {
         public final Class<T> clazz;
 
         public enum Type {
-            Boolean,
-            Character,
-            Double,
-            Enum,
-            Float,
-            Integer,
-            List,
-            Long,
-            Map,
-            None,
-            Object,
-            String;
+            Boolean, Character, Double, Enum, Float, Integer, List, Long, Map, None, Object, String;
 
             public boolean isObject() {
                 return this.equals(Object);
@@ -422,8 +395,7 @@ public class Advanced {
             this(new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), null);
         }
 
-        public ObjectDetail(
-                List<String> names, List<Object> values, List<Type> type, Class<T> clazz) {
+        public ObjectDetail(List<String> names, List<Object> values, List<Type> type, Class<T> clazz) {
             this.names = names;
             this.values = values;
             this.types = type;
@@ -456,9 +428,7 @@ public class Advanced {
 
         public <E extends Enum<E>> E getEnum(String name, Class<E> type) {
             Object value = get(name);
-            return getType(name).equals(Type.Enum) && value.getClass().equals(type)
-                    ? (E) value
-                    : null;
+            return getType(name).equals(Type.Enum) && value.getClass().equals(type) ? (E) value : null;
         }
 
         public long getLong(String name, long defaultValue) {
@@ -484,8 +454,7 @@ public class Advanced {
 
         public DataType getDataType(String name) {
             int index = indexOf(name);
-            if (index == -1)
-                return null;
+            if (index == -1) return null;
             return getDataTypes().get(index);
         }
 
